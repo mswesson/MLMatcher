@@ -1,0 +1,32 @@
+services:
+  backend:
+    build: ./backend
+    env_file: .env
+    expose:
+      - "8000"
+    # Кэш моделей HuggingFace (эмбеддинги MiniLM ~470МБ) персистентно на хосте,
+    # чтобы не скачивать модель при каждом пересоздании контейнера. Каталог лежит
+    # вне build-контекста (backend/), поэтому НЕ влияет на сборку образа и не
+    # триггерит повторную загрузку зависимостей.
+    volumes:
+      - ./.hf_cache:/root/.cache/huggingface
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  frontend:
+    build: ./frontend
+    environment:
+      - NODE_ENV=production
+      - BACKEND_URL=http://backend:8000
+      - PORT=3000
+    ports:
+      - "${FRONTEND_PORT:-3000}:3000"
+    depends_on:
+      backend:
+        condition: service_healthy
+    restart: unless-stopped

@@ -1,0 +1,16 @@
+# Кэш моделей HuggingFace (эмбеддинги), монтируется как volume в docker-compose
+.hf_cache/
+
+# Системный мусор macOS
+.DS_Store
+
+# Артефакты Playwright MCP
+.playwright-mcp/
+
+# Python
+__pycache__/
+*.pyc
+
+# Node
+node_modules/
+frontend/dist/

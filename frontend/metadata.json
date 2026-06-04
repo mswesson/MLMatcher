@@ -1,0 +1,6 @@
+{
+  "name": "ML Matcher",
+  "description": "Сервис автоматизированного сопоставления текстовых строк на основе машинного обучения CatBoost и TF-IDF",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
