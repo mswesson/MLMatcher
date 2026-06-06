@@ -18,6 +18,8 @@ FEATURE_REGISTRY: dict[FeatureId, Callable[[str, str], float]] = {
     FeatureId.NUMBER_MATCH: functions.number_match,
     FeatureId.NUMBER_SIMILARITY: functions.number_similarity,
     FeatureId.WORD_INTERSECTION: functions.word_intersection,
+    FeatureId.TOKEN_SET_RATIO: functions.token_set_ratio_similarity,
+    FeatureId.PARTIAL_RATIO: functions.partial_ratio_similarity,
     FeatureId.LENGTH_DIFF: functions.length_diff,
     FeatureId.TFIDF_COSINE: functions.tfidf_cosine,
 }

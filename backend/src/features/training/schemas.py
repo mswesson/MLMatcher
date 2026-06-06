@@ -26,3 +26,5 @@ class TrainingMeta(BaseModel):
     embedding_model: str | None = None
     # Признак наличия калибратора вероятностей (calibrator.pkl) в архиве.
     has_calibrator: bool = False
+    # Подобранный на валидации порог решения (proba >= порога → совпадение).
+    decision_threshold: float | None = None

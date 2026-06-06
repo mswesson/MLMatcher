@@ -11,6 +11,8 @@ export type FeatureId =
   | 'number_match'
   | 'number_similarity'
   | 'word_intersection'
+  | 'token_set_ratio'
+  | 'partial_ratio'
   | 'length_diff'
   | 'tfidf_cosine'
   | 'embedding_cosine';
@@ -62,7 +64,7 @@ export const AVAILABLE_FEATURES: FeatureConfig[] = [
   {
     id: 'number_similarity',
     label: 'Близость чисел (градуированная)',
-    description: 'Учитывает величину различия дозировок: 4.5≈4 — высокий балл, 500 vs 250 — низкий. Чтобы цифры весили больше.',
+    description: 'Учитывает величину различия чисел: 4.5≈4 — высокий балл, 500 vs 250 — низкий. Чтобы числа весили больше.',
     defaultChecked: true,
     category: 'token',
   },
@@ -72,6 +74,20 @@ export const AVAILABLE_FEATURES: FeatureConfig[] = [
     description: 'Количество общих слов (лексем) после токенизации и очистки.',
     defaultChecked: true,
     category: 'token',
+  },
+  {
+    id: 'token_set_ratio',
+    label: 'Token-set ratio',
+    description: 'Сходство по множествам слов: устойчиво к перестановке и подмножеству слов (часть названия внутри другого с лишним текстом).',
+    defaultChecked: false,
+    category: 'token',
+  },
+  {
+    id: 'partial_ratio',
+    label: 'Partial ratio',
+    description: 'Лучший частичный матч: одна строка целиком входит в другую с добавочным текстом.',
+    defaultChecked: false,
+    category: 'sequence',
   },
   {
     id: 'length_diff',
@@ -105,6 +121,21 @@ export interface TrainingLog {
   progress: number;
 }
 
+// Метрики качества модели на honest test (30% датасета).
+export interface TrainingMetrics {
+  error_rate: number;                          // доля верных пар с proba < порога (цель < 0.05)
+  positive_recall_at_threshold: number;        // доля уверенных совпадений (цель ≥ 0.95)
+  negative_specificity_at_threshold: number;   // доля негативов ниже порога (защита от вырождения)
+  match_threshold: number;                     // порог уверенного совпадения (напр. 0.9)
+  auc: number;
+  f1: number;
+  accuracy: number;
+  train_size: number;
+  test_size: number;
+  test_positive_count: number;
+  test_negative_count: number;
+}
+
 export interface TrainingTask {
   id: string;
   status: TaskStatus;
@@ -115,6 +146,7 @@ export interface TrainingTask {
   logs: TrainingLog[];
   createdAt: string;
   completedAt?: string;
+  metrics?: TrainingMetrics;
 }
 
 export interface InferenceResult {

@@ -10,7 +10,7 @@ import {
   Binary, ListChecks, ArrowUpDown, Flame, HelpCircle 
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { AVAILABLE_FEATURES, FeatureId, TrainingLog, TaskStatus } from '../types';
+import { AVAILABLE_FEATURES, FeatureId, TrainingLog, TaskStatus, TrainingMetrics } from '../types';
 
 export default function StepTraining() {
   // Config state
@@ -29,6 +29,7 @@ export default function StepTraining() {
   const [progress, setProgress] = useState(0);
   const [logs, setLogs] = useState<TrainingLog[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [metrics, setMetrics] = useState<TrainingMetrics | null>(null);
 
   // Terminal autoscroll helper
   const terminalRef = useRef<HTMLDivElement>(null);
@@ -121,6 +122,7 @@ Nike Air Force 1 Sneakers,Кроссовки Nike Air Force 1 оригинал
 
     setError(null);
     setLogs([]);
+    setMetrics(null);
     setTaskId(null);
     setProgress(0);
     setStatus('preparing');
@@ -162,13 +164,17 @@ Nike Air Force 1 Sneakers,Кроссовки Nike Air Force 1 оригинал
             return;
           }
 
-          const { status: currentStatus, progress: currentProgress, log } = payload;
-          
+          const { status: currentStatus, progress: currentProgress, log, metrics: eventMetrics } = payload;
+
           setStatus(currentStatus);
           setProgress(currentProgress);
-          
+
           if (log) {
             setLogs(prev => [...prev, log]);
+          }
+
+          if (eventMetrics) {
+            setMetrics(eventMetrics);
           }
 
           if (currentStatus === 'completed') {
@@ -213,6 +219,10 @@ Nike Air Force 1 Sneakers,Кроссовки Nike Air Force 1 оригинал
         return <span className="text-teal-600 font-semibold font-mono text-sm group-hover:scale-110 transition-transform">≋</span>;
       case 'word_intersection':
         return <ListChecks className="h-4 w-4 text-emerald-500 group-hover:scale-110 transition-transform" />;
+      case 'token_set_ratio':
+        return <Zap className="h-4 w-4 text-emerald-500 group-hover:scale-110 transition-transform" />;
+      case 'partial_ratio':
+        return <Flame className="h-4 w-4 text-orange-500 group-hover:scale-110 transition-transform" />;
       case 'length_diff':
         return <ArrowUpDown className="h-4 w-4 text-rose-500 group-hover:translate-y-0.5 transition-transform" />;
       case 'tfidf_cosine':
@@ -551,6 +561,53 @@ Nike Air Force 1 Sneakers,Кроссовки Nike Air Force 1 оригинал
               </div>
             )}
 
+            {status === 'completed' && metrics && (() => {
+              const errPct = metrics.error_rate * 100;
+              const tone = errPct < 5
+                ? { box: 'bg-emerald-50 border-emerald-200', accent: 'text-emerald-700', label: 'Модель обучилась хорошо' }
+                : errPct < 15
+                ? { box: 'bg-amber-50 border-amber-200', accent: 'text-amber-700', label: 'Качество среднее — есть что улучшить' }
+                : { box: 'bg-rose-50 border-rose-200', accent: 'text-rose-700', label: 'Модель обучилась криво' };
+              const thr = Math.round(metrics.match_threshold * 100);
+              const cell = (title: string, value: string) => (
+                <div className="text-center">
+                  <p className="text-[10px] text-slate-500 uppercase tracking-widest font-semibold">{title}</p>
+                  <p className="text-base font-bold text-slate-700">{value}</p>
+                </div>
+              );
+              return (
+                <motion.div
+                  key="metrics-section"
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className={`mb-3 p-4 rounded-xl border ${tone.box}`}
+                >
+                  <div className="flex items-baseline justify-between mb-3">
+                    <span className="text-xs font-semibold uppercase tracking-widest text-slate-500">
+                      Тестирование на 30% датасета
+                    </span>
+                    <span className={`text-xs font-semibold ${tone.accent}`}>{tone.label}</span>
+                  </div>
+                  <div className="flex items-center gap-4 mb-4">
+                    <div>
+                      <p className={`text-3xl font-bold ${tone.accent}`}>{errPct.toFixed(1)}%</p>
+                      <p className="text-[11px] text-slate-500 leading-tight mt-0.5">
+                        ошибок — на стольких верных парах модель<br />дала уверенность ниже {thr}%
+                      </p>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-3 gap-3 pt-3 border-t border-slate-200/70">
+                    {cell(`Уверенных (≥${thr}%)`, `${(metrics.positive_recall_at_threshold * 100).toFixed(1)}%`)}
+                    {cell('Специфичность', `${(metrics.negative_specificity_at_threshold * 100).toFixed(1)}%`)}
+                    {cell('ROC-AUC', metrics.auc.toFixed(3))}
+                    {cell('F1', metrics.f1.toFixed(3))}
+                    {cell('Accuracy', `${(metrics.accuracy * 100).toFixed(1)}%`)}
+                    {cell('Train / Test', `${metrics.train_size} / ${metrics.test_size}`)}
+                  </div>
+                </motion.div>
+              );
+            })()}
+
             <AnimatePresence mode="wait">
               {status === 'completed' ? (
                 <motion.div
@@ -573,6 +630,7 @@ Nike Air Force 1 Sneakers,Кроссовки Nike Air Force 1 оригинал
                     onClick={() => {
                       setStatus('idle');
                       setFile(null);
+                      setMetrics(null);
                     }}
                     className="h-12 px-5 flex items-center justify-center bg-slate-100 hover:bg-slate-200 text-slate-600 font-sans text-sm font-semibold rounded-xl transition-all cursor-pointer"
                   >
