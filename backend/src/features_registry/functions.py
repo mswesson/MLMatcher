@@ -15,6 +15,9 @@ from sklearn.metrics.pairwise import cosine_similarity
 # Числа с дробной частью («4.5», «0,5») берём целиком, а не по цифрам.
 _NUMBERS_RE = re.compile(r"\d+(?:[.,]\d+)?")
 _WORD_RE = re.compile(r"\w+", re.UNICODE)
+# Число + необязательная единица измерения (1–4 буквы сразу после числа, через пробел или без).
+# Покрывает: «50 м», «50м», «14 шт», «14г.», «500 мг», «0,5 мл» и т.п.
+_NUM_UNIT_RE = re.compile(r"(\d+(?:[.,]\d+)?)\s*([a-zA-Zа-яёА-ЯЁ]{1,4})?(?:[.\s]|$)")
 
 # Транслитерация кириллица→латиница для приведения слов к общему алфавиту.
 _CYR_TO_LAT = {
@@ -84,6 +87,42 @@ def dice_coefficient(s1: str, s2: str) -> float:
 def _parse_numbers(text: str) -> list[float]:
     """Извлекает числа из строки (дробные — целиком, запятая как разделитель)."""
     return [float(n.replace(",", ".")) for n in _NUMBERS_RE.findall(text)]
+
+
+def _parse_number_units(text: str) -> list[tuple[float, str]]:
+    """Извлекает пары (число, единица) из строки после транслитерации.
+
+    Единица — короткий буквенный токен (1–4 символа) сразу за числом: «50 м» → (50.0, 'm'),
+    «14 шт» → (14.0, 'sht'), «500 мг» → (500.0, 'mg'). Если единицы нет — пустая строка.
+    Транслитерация выравнивает кириллицу и латиницу («м»/'m', «г»/'g').
+    """
+    result = []
+    for m in _NUM_UNIT_RE.finditer(translit(text)):
+        num = float(m.group(1).replace(",", "."))
+        unit = (m.group(2) or "").strip()
+        result.append((num, unit))
+    return result
+
+
+def number_unit_match(s1: str, s2: str) -> float:
+    """1.0, если пары (число, единица) совпадают; 0.0 если единицы явно разные.
+
+    Целевой сигнал: «50 см» ↔ «50 м» → 0.0 (одинаковые числа, разные единицы);
+    «14 г.» ↔ «14 шт» → 0.0; «50 м» ↔ «50м» → 1.0 (пробел не мешает).
+    Если хотя бы у одной строки нет единиц — возвращает `number_match` (без штрафа):
+    пара «500» ↔ «500 мг» неоднозначна, а явного конфликта единиц нет.
+    """
+    p1 = sorted(_parse_number_units(s1))
+    p2 = sorted(_parse_number_units(s2))
+    if not p1 and not p2:
+        return 0.0
+    if not p1 or not p2:
+        return 0.0
+    # Если обе строки имеют явные единицы — сравниваем строго.
+    if all(u for _, u in p1) and all(u for _, u in p2):
+        return 1.0 if p1 == p2 else 0.0
+    # Иначе (одна из строк без единиц) — fallback на совпадение чисел.
+    return number_match(s1, s2)
 
 
 def number_match(s1: str, s2: str) -> float:
@@ -168,8 +207,16 @@ def partial_ratio_similarity(s1: str, s2: str) -> float:
 
 
 def length_diff(s1: str, s2: str) -> float:
-    """Абсолютная разница длин строк в символах."""
-    return float(abs(len(s1) - len(s2)))
+    """Относительная разница длин строк: |len1 - len2| / max(len1, len2), 0..1.
+
+    Нормировка делает фичу ограниченной и масштаб-инвариантной: добавление
+    «метров» вместо «м» даёт небольшой сдвиг, а не скачок в абсолютных символах,
+    на котором дерево могло переобучиться «по длине ввода».
+    """
+    longest = max(len(s1), len(s2))
+    if longest == 0:
+        return 0.0
+    return abs(len(s1) - len(s2)) / longest
 
 
 def tfidf_cosine(s1: str, s2: str) -> float:

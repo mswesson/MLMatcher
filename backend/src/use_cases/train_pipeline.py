@@ -24,7 +24,11 @@ from sklearn.metrics import accuracy_score, f1_score, precision_recall_curve, ro
 from sklearn.model_selection import train_test_split
 
 from src.core.config import settings
-from src.features.training.negatives import generate_hard_negatives, generate_numeric_negatives
+from src.features.training.negatives import (
+    generate_hard_negatives,
+    generate_numeric_negatives,
+    generate_positive_augmentations,
+)
 from src.features_registry.calibration import ProbabilityCalibrator
 from src.features_registry.embeddings import build_embedding_map
 from src.features_registry.functions import translit
@@ -49,6 +53,8 @@ class PipelineResult:
     worst_errors: list[dict] = field(default_factory=list)
     # Калиброванные вероятности всех верных пар теста — для диагностики порогов.
     test_positive_probabilities: list[float] = field(default_factory=list)
+    # Верные пары honest test — для оценки устойчивости к поверхностным вариациям.
+    test_positive_pairs: list[tuple[str, str]] = field(default_factory=list)
 
 
 def _fit_corpus_vectorizer(strings1: list[str], strings2: list[str]) -> TfidfVectorizer:
@@ -148,6 +154,7 @@ def _train_model(
         iterations=settings.catboost_iterations,
         depth=settings.catboost_depth,
         learning_rate=settings.catboost_learning_rate,
+        l2_leaf_reg=settings.catboost_l2_leaf_reg,
         loss_function="Logloss",
         # Ранняя остановка по Logloss (proper scoring rule): продолжает «заострять»
         # вероятности к 0/1. По AUC обучение встаёт, как только ранжирование идеально,
@@ -279,10 +286,21 @@ def train_and_evaluate(
         step("Обучение корпусного TF-IDF векторайзера на train-строках...", 45)
         vectorizer = _fit_corpus_vectorizer(train_s1, train_s2)
 
+    # --- Аугментированные позитивы (только train): учим инвариантности к записи ---
+    train_augmented = generate_positive_augmentations(
+        train_s1, train_s2, settings.augmentations_per_positive
+    )
+    if train_augmented:
+        step(f"Сгенерировано аугментированных позитивов: {len(train_augmented)}.", 50)
+        if embeddings is not None:
+            variants = [a for a, _ in train_augmented]
+            embeddings.update(build_embedding_map(variants))
+
     # --- Матрицы признаков ---
     step(f"Расчёт признаков ({len(features)} фич на пару)...", 55)
-    train_pairs_all = train_pairs + train_negatives
-    train_labels = [1] * len(train_pairs) + [0] * len(train_negatives)
+    train_positives = train_pairs + train_augmented
+    train_pairs_all = train_positives + train_negatives
+    train_labels = [1] * len(train_positives) + [0] * len(train_negatives)
     train_x = _build_feature_matrix(train_pairs_all, features, vectorizer, embeddings)
 
     test_pos_x = _build_feature_matrix(test_pairs, features, vectorizer, embeddings)
@@ -311,4 +329,5 @@ def train_and_evaluate(
         metrics=metrics,
         worst_errors=worst_errors,
         test_positive_probabilities=pos_proba.tolist(),
+        test_positive_pairs=test_pairs,
     )

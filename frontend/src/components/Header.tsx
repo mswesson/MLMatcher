@@ -3,11 +3,11 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { Network, GraduationCap, Search, BookOpen } from 'lucide-react';
+import { Network, GraduationCap, Search, BookOpen, BarChart2 } from 'lucide-react';
 
 interface HeaderProps {
-  activeTab: 'training' | 'testing' | 'documentation';
-  setActiveTab: (tab: 'training' | 'testing' | 'documentation') => void;
+  activeTab: 'training' | 'testing' | 'batch' | 'documentation';
+  setActiveTab: (tab: 'training' | 'testing' | 'batch' | 'documentation') => void;
 }
 
 export default function Header({ activeTab, setActiveTab }: HeaderProps) {
@@ -60,6 +60,19 @@ export default function Header({ activeTab, setActiveTab }: HeaderProps) {
           >
             <Search className="h-4 w-4" />
             <span>Тестирование</span>
+          </button>
+
+          <button
+            id="tab-batch"
+            onClick={() => setActiveTab('batch')}
+            className={`flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-xl transition-all duration-300 ${
+              activeTab === 'batch'
+                ? 'bg-white text-blue-600 shadow-sm shadow-blue-500/5 ring-1 ring-slate-100/5'
+                : 'text-slate-500 hover:text-slate-900 hover:bg-white/40'
+            }`}
+          >
+            <BarChart2 className="h-4 w-4" />
+            <span>Пакетная оценка</span>
           </button>
         </nav>
 

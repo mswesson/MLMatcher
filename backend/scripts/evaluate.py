@@ -11,12 +11,57 @@ import sys
 from pathlib import Path
 
 from src.core.config import settings
+from src.features.training.perturbations import generate_variants
 from src.features.training.service import TrainingService
 from src.features_registry.ids import FeatureId
-from src.use_cases.train_pipeline import train_and_evaluate
+from src.use_cases.predict_match import predict_match
+from src.use_cases.train_pipeline import PipelineResult, train_and_evaluate
 
 # Полный набор фич — оценка «из коробки», доменно-нейтрально.
 ALL_FEATURES = list(FeatureId)
+
+# Сколько верных пар теста сэмплировать под robustness-проверку (ради скорости).
+ROBUSTNESS_SAMPLE = 200
+# Сколько поверхностных вариантов «Строки 1» генерировать на каждую пару.
+ROBUSTNESS_VARIANTS = 3
+
+
+def _print_robustness(result: PipelineResult, features: list[FeatureId]) -> None:
+    """Оценивает устойчивость к поверхностным вариациям «Строки 1».
+
+    Для сэмпла верных пар теста генерирует смысло-сохраняющие варианты (порядок
+    слов, пробелы у границы цифра↔буква, пунктуация, регистр) и считает долю
+    вариантов, оставшихся выше порога (``perturbed_recall``), и средний просад
+    вероятности относительно исходной формы (``robustness_drop``). Это прямой
+    замер «банального кейса» вроде «х50» → «50 м».
+    """
+    threshold = result.metrics["match_threshold"]
+    pairs = result.test_positive_pairs[:ROBUSTNESS_SAMPLE]
+    above = 0
+    total = 0
+    drops: list[float] = []
+    for s1, s2 in pairs:
+        base, _ = predict_match(
+            result.model, features, s1, s2, result.vectorizer, settings.embedding_model, result.calibrator
+        )
+        for variant in generate_variants(s1, ROBUSTNESS_VARIANTS):
+            proba, _ = predict_match(
+                result.model, features, variant, s2, result.vectorizer, settings.embedding_model, result.calibrator
+            )
+            total += 1
+            above += int(proba >= threshold)
+            drops.append(base - proba)
+
+    print("\n" + "=" * 70)
+    print("УСТОЙЧИВОСТЬ К ПОВЕРХНОСТНЫМ ВАРИАЦИЯМ (perturbed honest-test позитивы)")
+    print("=" * 70)
+    if total == 0:
+        print("  — не удалось сгенерировать варианты")
+        return
+    print(f"  Пар в сэмпле / вариантов:         {len(pairs)} / {total}")
+    print(f"  ▶ PERTURBED RECALL (≥ порога):     {above / total * 100:6.2f}%   (цель ≥ 95%)")
+    print(f"  Средний просад вероятности:       {sum(drops) / len(drops) * 100:+6.2f}%")
+    print(f"  Макс. просад вероятности:         {max(drops) * 100:+6.2f}%")
 
 
 def _print_worst_errors(worst_errors: list[dict]) -> None:
@@ -78,6 +123,7 @@ def main() -> None:
             print(f"    proba ≥ {int(t * 100):2d}%:  {rec * 100:5.1f}%")
 
     _print_worst_errors(result.worst_errors)
+    _print_robustness(result, ALL_FEATURES)
     print("=" * 70)
 
 

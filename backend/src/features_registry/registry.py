@@ -22,6 +22,7 @@ FEATURE_REGISTRY: dict[FeatureId, Callable[[str, str], float]] = {
     FeatureId.PARTIAL_RATIO: functions.partial_ratio_similarity,
     FeatureId.LENGTH_DIFF: functions.length_diff,
     FeatureId.TFIDF_COSINE: functions.tfidf_cosine,
+    FeatureId.NUMBER_UNIT_MATCH: functions.number_unit_match,
 }
 
 

@@ -8,10 +8,11 @@ import { motion, AnimatePresence } from 'motion/react';
 import Header from './components/Header';
 import StepTraining from './components/StepTraining';
 import StepInference from './components/StepInference';
+import StepBatchEval from './components/StepBatchEval';
 import Documentation from './components/Documentation';
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState<'training' | 'testing' | 'documentation'>('training');
+  const [activeTab, setActiveTab] = useState<'training' | 'testing' | 'batch' | 'documentation'>('training');
 
   return (
     <div className="relative min-h-screen bg-slate-50 overflow-hidden font-sans antialiased text-slate-800">
@@ -51,6 +52,18 @@ export default function App() {
               transition={{ duration: 0.35, ease: 'easeInOut' }}
             >
               <StepInference />
+            </motion.div>
+          )}
+
+          {activeTab === 'batch' && (
+            <motion.div
+              key="batch-tab"
+              initial={{ opacity: 0, y: 15 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -15 }}
+              transition={{ duration: 0.35, ease: 'easeInOut' }}
+            >
+              <StepBatchEval />
             </motion.div>
           )}
 

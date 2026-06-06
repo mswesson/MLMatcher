@@ -12,6 +12,8 @@ import numpy as np
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 
+from src.features.training.perturbations import generate_variants
+
 # Числа с дробной частью — для подмены при генерации числовых негативов.
 _NUMBERS_RE = re.compile(r"\d+(?:[.,]\d+)?")
 
@@ -134,3 +136,24 @@ def generate_numeric_negatives(
             if altered and altered != s2:
                 negatives.append((s1, altered))
     return negatives
+
+
+def generate_positive_augmentations(
+    strings1: list[str],
+    strings2: list[str],
+    augmentations_per_sample: int = 1,
+) -> list[tuple[str, str]]:
+    """Аугментированные позитивы: та же пара, но «Строка 1» в иной поверхностной форме.
+
+    Для каждой верной пары генерирует смысло-сохраняющие варианты «Строки 1»
+    (порядок слов, пробелы у границы цифра↔буква, пунктуация, регистр; числа и
+    набор слов не меняются) и формирует пары (вариант, Строка 2) класса 1. Так
+    модель учится, что одна и та же сущность в разной записи — это совпадение.
+    """
+    if augmentations_per_sample < 1:
+        return []
+    augmented: list[tuple[str, str]] = []
+    for s1, s2 in zip(strings1, strings2):
+        for variant in generate_variants(s1, augmentations_per_sample):
+            augmented.append((variant, s2))
+    return augmented

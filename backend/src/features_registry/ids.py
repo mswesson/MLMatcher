@@ -21,3 +21,4 @@ class FeatureId(StrEnum):
     LENGTH_DIFF = "length_diff"
     TFIDF_COSINE = "tfidf_cosine"
     EMBEDDING_COSINE = "embedding_cosine"
+    NUMBER_UNIT_MATCH = "number_unit_match"
