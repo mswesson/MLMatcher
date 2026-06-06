@@ -34,6 +34,8 @@ class TaskState:
     completed_at: str | None = None
     # Готовый ZIP-архив модели (заполняется по завершении обучения).
     model_zip: bytes | None = None
+    # Метрики качества на honest test (30%) — для отображения в UI.
+    metrics: dict | None = None
     # Активные SSE-подписчики.
     subscribers: list[asyncio.Queue] = field(default_factory=list)
 
@@ -99,6 +101,24 @@ class TaskStore:
             "status": status,
             "progress": progress,
             "log": log,
+        }
+        task.events.append(event)
+        for queue in task.subscribers:
+            queue.put_nowait(event)
+
+    def push_metrics(self, task_id: str, metrics: dict) -> None:
+        """Сохраняет метрики теста и рассылает их отдельным SSE-событием.
+
+        Метрики хранятся в задаче (попадают в историю ``events``), поэтому
+        переживают переподключение SSE-клиента.
+        """
+        task = self.get(task_id)
+        task.metrics = metrics
+        event = {
+            "taskId": task_id,
+            "status": task.status,
+            "progress": task.progress,
+            "metrics": metrics,
         }
         task.events.append(event)
         for queue in task.subscribers:

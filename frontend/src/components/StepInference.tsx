@@ -163,7 +163,7 @@ export default function StepInference() {
       case 'number_match':
         return score === 1.0 ? 'Цифры полностью совпадают' : score === 0.0 ? 'Цифры в строках не совпадают!' : 'Цифры отсутствуют в обеих строках';
       case 'number_similarity':
-        return `${Math.round(score * 100)}% близости чисел (учитывает величину различия дозировок)`;
+        return `${Math.round(score * 100)}% близости чисел (учитывает величину различия чисел)`;
       case 'word_intersection':
         return `${Math.round(score * 100)}% слов пересекаются друг с другом`;
       case 'length_diff':

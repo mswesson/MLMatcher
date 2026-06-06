@@ -53,7 +53,7 @@ async def training_status(task_id: str) -> StreamingResponse:
         try:
             # Сначала проигрываем уже накопленные события (поддержка переподключения).
             for event in list(task.events):
-                seen.add(id(event["log"]))
+                seen.add(id(event))
                 yield _sse(event)
             # Если задача уже завершилась — закрываем поток.
             if task.status in TERMINAL_STATUSES:
@@ -62,7 +62,7 @@ async def training_status(task_id: str) -> StreamingResponse:
             # Затем стримим новые события из очереди.
             while True:
                 event = await queue.get()
-                if id(event["log"]) in seen:
+                if id(event) in seen:
                     continue
                 yield _sse(event)
                 if event["status"] in TERMINAL_STATUSES:
