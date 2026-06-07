@@ -15,7 +15,8 @@ export type FeatureId =
   | 'partial_ratio'
   | 'length_diff'
   | 'tfidf_cosine'
-  | 'embedding_cosine';
+  | 'embedding_cosine'
+  | 'number_unit_match';
 
 export interface FeatureConfig {
   id: FeatureId;
@@ -109,6 +110,13 @@ export const AVAILABLE_FEATURES: FeatureConfig[] = [
     description: 'Косинус мультиязычных эмбеддингов: ловит смысл, синонимы и разные алфавиты. Считается только на сервере.',
     defaultChecked: true,
     category: 'semantic',
+  },
+  {
+    id: 'number_unit_match',
+    label: 'Число + единица измерения',
+    description: 'Сравнивает пары (число, единица): «50 см» ≠ «50 м», «14 г» ≠ «14 шт». Отличает одно и то же число в разных единицах.',
+    defaultChecked: true,
+    category: 'token',
   },
 ];
 

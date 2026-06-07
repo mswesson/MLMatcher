@@ -11,7 +11,7 @@ from catboost import CatBoostClassifier
 from sklearn.feature_extraction.text import TfidfVectorizer
 
 from src.core.exceptions import InvalidModelArchive
-from src.features_registry.ids import FeatureId
+from src.shared.similarity import FeatureId
 
 
 def load_model_from_zip(
@@ -43,7 +43,6 @@ def load_model_from_zip(
     if not features:
         raise InvalidModelArchive("В meta.json пустой список фич")
 
-    # CatBoost умеет загружать модель только из файла — пишем во временный.
     tmp_path = tempfile.mktemp(suffix=".cbm")
     try:
         with open(tmp_path, "wb") as f:
@@ -56,7 +55,6 @@ def load_model_from_zip(
         if os.path.exists(tmp_path):
             os.remove(tmp_path)
 
-    # Корпусный TF-IDF векторайзер — опционален (старые архивы его не содержат).
     vectorizer: TfidfVectorizer | None = None
     if "tfidf.pkl" in names:
         try:
@@ -64,10 +62,8 @@ def load_model_from_zip(
         except Exception as exc:
             raise InvalidModelArchive("Не удалось загрузить tfidf.pkl из архива") from exc
 
-    # Имя модели эмбеддингов берём из meta (если обучались с embedding_cosine).
     embedding_model = meta.get("embedding_model")
 
-    # Калибратор вероятностей — опционален (старые архивы его не содержат).
     calibrator = None
     if "calibrator.pkl" in names:
         try:

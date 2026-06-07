@@ -7,6 +7,7 @@ from fastapi.responses import JSONResponse
 from src.core.config import settings
 from src.core.exceptions import DomainError
 from src.core.logger import logger
+from src.features.dataset.router import router as dataset_router
 from src.features.inference.router import router as inference_router
 from src.features.training.router import router as training_router
 
@@ -30,6 +31,7 @@ async def domain_error_handler(request: Request, exc: DomainError) -> JSONRespon
 
 # Общий префикс /api/v1 для всех роутеров.
 api_router = APIRouter(prefix="/api/v1")
+api_router.include_router(dataset_router)
 api_router.include_router(training_router)
 api_router.include_router(inference_router)
 app.include_router(api_router)
