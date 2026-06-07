@@ -2,7 +2,7 @@
 
 from pydantic import BaseModel
 
-from src.features_registry.ids import FeatureId
+from src.shared.similarity import FeatureId
 
 
 class PredictResponse(BaseModel):
@@ -31,5 +31,9 @@ class BatchPredictResponse(BaseModel):
     below_threshold_count: int
     mean_probability: float
     median_probability: float
+    # Доля пар выше фиксированных порогов (50/70/90%) — независимо от threshold модели.
+    recall_at_50: float
+    recall_at_70: float
+    recall_at_90: float
     worst_errors: list[BatchPredictError]
     time_ms: int

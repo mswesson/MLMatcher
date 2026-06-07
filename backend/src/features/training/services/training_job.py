@@ -1,9 +1,8 @@
 """Фоновая задача обучения: тонкая обёртка над пайплайном ``train_and_evaluate``.
 
-Запускается через FastAPI ``BackgroundTasks``. Всё ядро обучения (честный
-pair-level split, негативы, фичи, CatBoost, калибровка, метрики на honest test)
-живёт в ``train_pipeline.py`` и переиспользуется оффлайн eval-скриптом. Здесь —
-только трансляция прогресса/метрик в SSE и упаковка результата в ZIP.
+Запускается через FastAPI ``BackgroundTasks``. Всё ядро обучения живёт в
+``ml_pipeline.py``. Здесь — только трансляция прогресса/метрик в SSE и
+упаковка результата в ZIP.
 
 Блокирующее обучение выполняется в отдельном потоке через ``asyncio.to_thread``,
 чтобы не блокировать event loop (а значит и SSE-стрим).
@@ -15,10 +14,10 @@ from datetime import datetime, timezone
 from src.core.config import settings
 from src.core.logger import logger
 from src.core.task_store import task_store
-from src.features.training.model_io import build_model_zip
 from src.features.training.schemas import TrainingMeta
-from src.features_registry.ids import FeatureId
-from src.use_cases.train_pipeline import train_and_evaluate
+from src.features.training.services.ml_pipeline import train_and_evaluate
+from src.features.training.services.model_io import build_model_zip
+from src.shared.similarity import FeatureId
 
 
 async def run_training_job(
@@ -42,8 +41,6 @@ async def run_training_job(
             "info", 8, "preparing",
         )
 
-        # Колбэк прогресса из пайплайна → SSE-лог. Блокирующий пайплайн в потоке,
-        # поэтому события кладём в очереди потокобезопасно через call_soon_threadsafe.
         loop = asyncio.get_running_loop()
 
         def on_step(message: str, progress: int) -> None:
@@ -56,7 +53,6 @@ async def run_training_job(
         )
         metrics = result.metrics
 
-        # Структурированные метрики теста → отдельное SSE-событие (видны в UI).
         task_store.push_metrics(task_id, metrics)
         task_store.push_log(
             task_id,
@@ -66,7 +62,6 @@ async def run_training_job(
             "success", 90, "training",
         )
 
-        # --- Сборка ZIP-артефакта ---
         task_store.push_log(
             task_id,
             "Экспорт весов в model.cbm и сериализация метаданных в meta.json. Формирование ZIP...",

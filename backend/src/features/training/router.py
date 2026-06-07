@@ -1,40 +1,42 @@
-"""HTTP-роутер slice обучения."""
+"""HTTP-роутер фичи обучения."""
 
 import json
 from collections.abc import AsyncIterator
 
-from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, UploadFile
+from fastapi import APIRouter, BackgroundTasks, Depends
 from fastapi.responses import Response, StreamingResponse
+from pydantic import BaseModel
 
 from src.core.exceptions import ModelNotReady
 from src.core.task_store import TERMINAL_STATUSES, task_store
 from src.features.training.schemas import TrainingStartResponse
 from src.features.training.service import TrainingService, get_training_service
-from src.use_cases.run_training_job import run_training_job
+from src.features.training.services.training_job import run_training_job
 
 router = APIRouter(prefix="/training", tags=["training"])
 
 
+class TrainingStartRequest(BaseModel):
+    dataset_id: str
+    features: list[str]
+
+
 @router.post("/start", response_model=TrainingStartResponse)
 async def start_training(
+    body: TrainingStartRequest,
     background_tasks: BackgroundTasks,
-    file: UploadFile = File(...),
-    features: str = Form(...),
     service: TrainingService = Depends(get_training_service),
 ) -> TrainingStartResponse:
-    """Принимает CSV + список фич, регистрирует фоновую задачу обучения."""
-    file_bytes = await file.read()
+    """Запускает фоновое обучение по ранее загруженному датасету."""
     task_id, job_kwargs = service.register_task(
-        file_bytes=file_bytes,
-        filename=file.filename or "dataset.csv",
-        features_raw=features,
+        dataset_id=body.dataset_id,
+        features_raw=json.dumps(body.features),
     )
     background_tasks.add_task(run_training_job, **job_kwargs)
     return TrainingStartResponse(task_id=task_id)
 
 
 def _sse(payload: dict) -> str:
-    """Форматирует словарь в SSE-строку."""
     return f"data: {json.dumps(payload, ensure_ascii=False)}\n\n"
 
 
@@ -51,15 +53,11 @@ async def training_status(task_id: str) -> StreamingResponse:
         queue = task_store.subscribe(task_id)
         seen: set[int] = set()
         try:
-            # Сначала проигрываем уже накопленные события (поддержка переподключения).
             for event in list(task.events):
                 seen.add(id(event))
                 yield _sse(event)
-            # Если задача уже завершилась — закрываем поток.
             if task.status in TERMINAL_STATUSES:
                 return
-
-            # Затем стримим новые события из очереди.
             while True:
                 event = await queue.get()
                 if id(event) in seen:

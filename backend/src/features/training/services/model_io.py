@@ -25,10 +25,7 @@ def build_model_zip(
     - ``meta.json`` — конфиг со списком использованных признаков;
     - ``tfidf.pkl`` — корпусный TF-IDF векторайзер (если ``vectorizer`` задан);
     - ``calibrator.pkl`` — калибратор вероятностей (если ``calibrator`` задан).
-
-    CatBoost умеет сохранять модель только в файл, поэтому используем временный.
     """
-    # CatBoost сериализует модель только на диск — пишем во временный файл.
     tmp_path = tempfile.mktemp(suffix=".cbm")
     try:
         model.save_model(tmp_path, format="cbm")

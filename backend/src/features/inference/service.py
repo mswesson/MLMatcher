@@ -1,14 +1,14 @@
-"""Сервис slice инференса."""
+"""Сервис инференса: загрузка модели и предсказание."""
 
 import io
 import time
 
 import pandas as pd
 
-from src.features.inference.model_loader import load_model_from_zip
 from src.features.inference.schemas import BatchPredictResponse, PredictResponse
-from src.use_cases.batch_predict import batch_predict
-from src.use_cases.predict_match import predict_match
+from src.features.inference.services.batch_predict import batch_predict
+from src.features.inference.services.model_loader import load_model_from_zip
+from src.features.inference.services.predict_match import predict_match
 
 
 class InferenceService:
@@ -26,12 +26,10 @@ class InferenceService:
     def predict(self, zip_bytes: bytes, string1: str, string2: str) -> PredictResponse:
         """Загружает модель из архива и возвращает вероятность матча двух строк."""
         start = time.perf_counter()
-
         model, features, vectorizer, embedding_model, calibrator = load_model_from_zip(zip_bytes)
         probability, feature_values = predict_match(
             model, features, string1, string2, vectorizer, embedding_model, calibrator
         )
-
         time_ms = max(1, int((time.perf_counter() - start) * 1000))
         return PredictResponse(
             match_probability=probability,
@@ -42,5 +40,4 @@ class InferenceService:
 
 
 def get_inference_service() -> InferenceService:
-    """DI-провайдер сервиса инференса."""
     return InferenceService()

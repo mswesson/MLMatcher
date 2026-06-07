@@ -127,22 +127,33 @@ Nike Air Force 1 Sneakers,Кроссовки Nike Air Force 1 оригинал
     setProgress(0);
     setStatus('preparing');
 
-    const formData = new FormData();
-    formData.append('file', file);
-    formData.append('features', JSON.stringify(selectedFeatures));
-
     try {
-      const response = await fetch('/api/v1/training/start', {
+      // Шаг 1: загрузить датасет и получить dataset_id
+      const uploadForm = new FormData();
+      uploadForm.append('file', file);
+      const uploadRes = await fetch('/api/v1/dataset/upload', {
         method: 'POST',
-        body: formData,
+        body: uploadForm,
+      });
+      if (!uploadRes.ok) {
+        const errJson = await uploadRes.json();
+        throw new Error(errJson.error || 'Ошибка загрузки датасета');
+      }
+      const { dataset_id } = await uploadRes.json();
+
+      // Шаг 2: запустить обучение с dataset_id и выбранными фичами
+      const trainRes = await fetch('/api/v1/training/start', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ dataset_id, features: selectedFeatures }),
       });
 
-      if (!response.ok) {
-        const errJson = await response.json();
+      if (!trainRes.ok) {
+        const errJson = await trainRes.json();
         throw new Error(errJson.error || 'Ошибка запуска обучения');
       }
 
-      const data = await response.json();
+      const data = await trainRes.json();
       const newTaskId = data.task_id;
       setTaskId(newTaskId);
 

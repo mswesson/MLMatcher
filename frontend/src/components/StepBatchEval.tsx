@@ -329,19 +329,27 @@ export default function StepBatchEval() {
                 className="space-y-5"
               >
                 {/* STAT CARDS */}
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
                   <div className="bg-white/95 rounded-2xl p-4 border border-slate-100 shadow-sm text-center">
                     <p className="text-xs text-slate-400 font-medium uppercase tracking-wide mb-1">Всего пар</p>
                     <p className="text-2xl font-extrabold text-slate-900">{result.total.toLocaleString('ru')}</p>
-                    <p className="text-[10px] text-slate-400 mt-0.5">порог: {(result.threshold * 100).toFixed(0)}%</p>
+                    <p className="text-[10px] text-slate-400 mt-0.5">{(result.time_ms / 1000).toFixed(1)} с</p>
+                  </div>
+
+                  <div className="bg-indigo-50/80 rounded-2xl p-4 border border-indigo-100 shadow-sm text-center">
+                    <p className="text-xs text-indigo-700 font-medium uppercase tracking-wide mb-1 flex items-center justify-center gap-1">
+                      <Target className="h-3.5 w-3.5" /> Порог
+                    </p>
+                    <p className="text-2xl font-extrabold text-indigo-800">{(result.threshold * 100).toFixed(0)}%</p>
+                    <p className="text-[10px] text-indigo-600 mt-0.5">из meta.json модели</p>
                   </div>
 
                   <div className="bg-emerald-50/80 rounded-2xl p-4 border border-emerald-100 shadow-sm text-center">
                     <p className="text-xs text-emerald-700 font-medium uppercase tracking-wide mb-1 flex items-center justify-center gap-1">
-                      <TrendingUp className="h-3.5 w-3.5" /> Уверенных
+                      <TrendingUp className="h-3.5 w-3.5" /> Распознано
                     </p>
                     <p className="text-2xl font-extrabold text-emerald-800">{recallPct}%</p>
-                    <p className="text-[10px] text-emerald-600 mt-0.5">{result.above_threshold_count.toLocaleString('ru')} пар</p>
+                    <p className="text-[10px] text-emerald-600 mt-0.5">recall — пар ≥ {(result.threshold * 100).toFixed(0)}%</p>
                   </div>
 
                   <div className={`rounded-2xl p-4 border shadow-sm text-center ${
@@ -352,20 +360,56 @@ export default function StepBatchEval() {
                     <p className={`text-xs font-medium uppercase tracking-wide mb-1 flex items-center justify-center gap-1 ${
                       result.below_threshold_count / result.total > 0.05 ? 'text-rose-700' : 'text-amber-700'
                     }`}>
-                      <TrendingDown className="h-3.5 w-3.5" /> Ошибок
+                      <TrendingDown className="h-3.5 w-3.5" /> Пропущено
                     </p>
                     <p className={`text-2xl font-extrabold ${
                       result.below_threshold_count / result.total > 0.05 ? 'text-rose-800' : 'text-amber-800'
                     }`}>{errorPct}%</p>
                     <p className={`text-[10px] mt-0.5 ${
                       result.below_threshold_count / result.total > 0.05 ? 'text-rose-600' : 'text-amber-600'
-                    }`}>{result.below_threshold_count.toLocaleString('ru')} пар</p>
+                    }`}>пар &lt; {(result.threshold * 100).toFixed(0)}%</p>
                   </div>
 
                   <div className="bg-blue-50/80 rounded-2xl p-4 border border-blue-100 shadow-sm text-center">
                     <p className="text-xs text-blue-700 font-medium uppercase tracking-wide mb-1">Ср. вероятность</p>
                     <p className="text-2xl font-extrabold text-blue-800">{(result.mean_probability * 100).toFixed(1)}%</p>
-                    <p className="text-[10px] text-blue-600 mt-0.5">медиана {(result.median_probability * 100).toFixed(1)}% · {(result.time_ms / 1000).toFixed(1)} с</p>
+                    <p className="text-[10px] text-blue-600 mt-0.5">медиана {(result.median_probability * 100).toFixed(1)}%</p>
+                  </div>
+                </div>
+
+                {/* CONFIDENCE DISTRIBUTION */}
+                <div className="bg-white/95 rounded-3xl p-5 border border-slate-100 shadow-sm">
+                  <div className="flex items-start justify-between mb-4">
+                    <div>
+                      <h3 className="font-sans text-sm font-bold text-slate-900">Уверенность модели</h3>
+                      <p className="text-xs text-slate-400 mt-0.5">
+                        Сколько пар получили вероятность выше каждой отметки
+                      </p>
+                    </div>
+                    <div className="text-right text-xs text-slate-400 leading-relaxed">
+                      Порог recall: <span className="font-bold text-indigo-600">{(result.threshold * 100).toFixed(0)}%</span><br />
+                      <span className="text-[10px]">минимум для захвата 95% пар</span>
+                    </div>
+                  </div>
+                  <div className="space-y-3">
+                    {[
+                      { label: '≥ 90%', value: result.recall_at_90, color: 'bg-emerald-500', note: '← высокая уверенность' },
+                      { label: '≥ 70%', value: result.recall_at_70, color: 'bg-blue-400', note: '← хорошая уверенность' },
+                      { label: '≥ 50%', value: result.recall_at_50, color: 'bg-indigo-300', note: '← выше случайного' },
+                      { label: `≥ ${(result.threshold * 100).toFixed(0)}%`, value: result.above_threshold_count / result.total, color: 'bg-slate-300', note: '← порог recall 95%' },
+                    ].map(({ label, value, color, note }) => (
+                      <div key={label} className="flex items-center gap-3">
+                        <span className="text-xs font-mono font-bold text-slate-600 w-12 text-right flex-shrink-0">{label}</span>
+                        <div className="flex-1 h-5 bg-slate-100 rounded-full overflow-hidden">
+                          <div
+                            className={`h-full rounded-full transition-all duration-700 ${color}`}
+                            style={{ width: `${(value * 100).toFixed(1)}%` }}
+                          />
+                        </div>
+                        <span className="text-xs font-bold text-slate-700 w-12 flex-shrink-0">{(value * 100).toFixed(1)}%</span>
+                        <span className="text-[10px] text-slate-400 w-32 flex-shrink-0">{note}</span>
+                      </div>
+                    ))}
                   </div>
                 </div>
 

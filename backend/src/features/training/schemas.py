@@ -2,7 +2,7 @@
 
 from pydantic import BaseModel
 
-from src.features_registry.ids import FeatureId
+from src.shared.similarity import FeatureId
 
 
 class TrainingStartResponse(BaseModel):

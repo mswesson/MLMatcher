@@ -20,7 +20,6 @@ from src.core.logger import logger
 @lru_cache(maxsize=2)
 def get_embedder(model_name: str):
     """Возвращает singleton SentenceTransformer по имени модели (кешируется)."""
-    # Ленивый импорт: torch/sentence-transformers тяжёлые, тянем только при нужде.
     from sentence_transformers import SentenceTransformer
 
     logger.info("Загрузка модели эмбеддингов: {}", model_name)
@@ -28,10 +27,7 @@ def get_embedder(model_name: str):
 
 
 def embed_texts(texts: list[str], model_name: str | None = None) -> np.ndarray:
-    """Кодирует список СЫРЫХ строк в L2-нормированные векторы.
-
-    Нормировка делает косинусное сходство простым скалярным произведением.
-    """
+    """Кодирует список СЫРЫХ строк в L2-нормированные векторы."""
     model = get_embedder(model_name or settings.embedding_model)
     return model.encode(
         texts,
